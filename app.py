@@ -1,0 +1,172 @@
+import streamlit as st
+import base64
+import os
+import tempfile
+from b2sdk.v2 import InMemoryAccountInfo, B2Api, DownloadDestLocalFile
+import io
+import time
+
+# Configuração da página
+st.set_page_config(
+    page_title="Sistema de Gerenciamento de PDFs",
+    page_icon="📄",
+    layout="wide"
+)
+
+# Configurações do Backblaze B2
+@st.cache_resource
+def initialize_b2():
+    """Inicializa a API do Backblaze B2"""
+    info = InMemoryAccountInfo()
+    b2_api = B2Api(info)
+    
+    # Credenciais do Backblaze
+    application_key_id = st.secrets["B2_KEY_ID"]
+    application_key = st.secrets["B2_APPLICATION_KEY"]
+    bucket_name = st.secrets["B2_BUCKET_NAME"]
+    
+    # Autorização
+    b2_api.authorize_account("production", application_key_id, application_key)
+    
+    # Pegando o bucket
+    bucket = b2_api.get_bucket_by_name(bucket_name)
+    
+    return b2_api, bucket
+
+# Interface principal
+st.title("Sistema de Gerenciamento de PDFs")
+
+# Inicializa tabs
+tab1, tab2 = st.tabs(["Upload de PDFs", "Visualizar/Download de PDFs"])
+
+with tab1:
+    st.header("Upload de PDF para o Backblaze")
+    
+    # Upload de arquivo
+    uploaded_file = st.file_uploader("Escolha um arquivo PDF", type=["pdf"])
+    
+    if uploaded_file is not None:
+        file_size = len(uploaded_file.getvalue())
+        st.info(f"Arquivo: {uploaded_file.name} ({file_size/1024:.2f} KB)")
+        
+        if st.button("Enviar para o Backblaze"):
+            with st.spinner("Enviando arquivo..."):
+                try:
+                    # Inicializa B2
+                    b2_api, bucket = initialize_b2()
+                    
+                    # Prepara os dados do arquivo
+                    file_data = uploaded_file.getvalue()
+                    file_name = uploaded_file.name
+                    
+                    # Upload do arquivo para o B2
+                    file_info = bucket.upload_bytes(
+                        data_bytes=file_data,
+                        file_name=file_name,
+                        content_type='application/pdf'
+                    )
+                    
+                    st.success(f"Arquivo enviado com sucesso! ID: {file_info.id_}")
+                    
+                    # Adicionando informações sobre o arquivo
+                    st.session_state.last_uploaded = {
+                        "name": file_name,
+                        "id": file_info.id_,
+                        "size": file_size,
+                        "timestamp": time.time()
+                    }
+                    
+                except Exception as e:
+                    st.error(f"Erro ao enviar arquivo: {str(e)}")
+
+with tab2:
+    st.header("Visualizar/Download de PDFs")
+    
+    try:
+        # Inicializa B2
+        b2_api, bucket = initialize_b2()
+        
+        # Listar arquivos do bucket
+        file_versions = bucket.list_file_versions()
+        files = {}
+        
+        # Organiza os arquivos mais recentes
+        for file_version, _ in file_versions:
+            if file_version.file_name not in files and file_version.file_name.endswith('.pdf'):
+                files[file_version.file_name] = {
+                    "id": file_version.id_,
+                    "name": file_version.file_name,
+                    "size": file_version.size,
+                    "upload_timestamp": file_version.upload_timestamp
+                }
+        
+        if files:
+            # Converte para lista para facilitar exibição
+            file_list = list(files.values())
+            
+            # Ordena por data de upload (mais recente primeiro)
+            file_list.sort(key=lambda x: x["upload_timestamp"], reverse=True)
+            
+            # Interface para selecionar arquivo
+            selected_filename = st.selectbox(
+                "Selecione um arquivo PDF", 
+                options=[f"{file['name']} ({file['size']/1024:.2f} KB)" for file in file_list],
+                index=0
+            )
+            
+            # Encontra o arquivo selecionado
+            selected_index = [f"{file['name']} ({file['size']/1024:.2f} KB)" for file in file_list].index(selected_filename)
+            selected_file = file_list[selected_index]
+            
+            # Opções para visualizar ou baixar
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("Visualizar PDF"):
+                    with st.spinner("Carregando PDF..."):
+                        try:
+                            # Baixa o arquivo para memória
+                            download_dest = io.BytesIO()
+                            bucket.download_file_by_id(selected_file["id"], download_dest)
+                            
+                            # Move o ponteiro de leitura para o início
+                            download_dest.seek(0)
+                            
+                            # Converte para base64 para exibição
+                            base64_pdf = base64.b64encode(download_dest.read()).decode('utf-8')
+                            
+                            # Exibe o PDF incorporado
+                            pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+                            st.markdown(pdf_display, unsafe_allow_html=True)
+                            
+                        except Exception as e:
+                            st.error(f"Erro ao visualizar arquivo: {str(e)}")
+            
+            with col2:
+                if st.button("Download PDF"):
+                    with st.spinner("Preparando download..."):
+                        try:
+                            # Baixa o arquivo para memória
+                            download_dest = io.BytesIO()
+                            bucket.download_file_by_id(selected_file["id"], download_dest)
+                            
+                            # Move o ponteiro de leitura para o início
+                            download_dest.seek(0)
+                            
+                            # Prepara o link de download
+                            file_bytes = download_dest.read()
+                            b64 = base64.b64encode(file_bytes).decode()
+                            href = f'<a href="data:application/pdf;base64,{b64}" download="{selected_file["name"]}">Clique aqui para baixar o arquivo</a>'
+                            st.markdown(href, unsafe_allow_html=True)
+                            
+                        except Exception as e:
+                            st.error(f"Erro ao preparar download: {str(e)}")
+        else:
+            st.info("Nenhum arquivo PDF encontrado no bucket.")
+            
+    except Exception as e:
+        st.error(f"Erro ao listar arquivos: {str(e)}")
+
+# Rodapé
+st.markdown("---")
+st.caption("Sistema de Gerenciamento de PDFs com Backblaze B2")
