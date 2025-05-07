@@ -60,7 +60,7 @@ def download_file_from_b2(bucket, file_id, file_name):
         raise e
 
 # Função para gerar URL assinada
-def get_signed_url(bucket, file_name, valid_duration=3600):
+def get_signed_url(bucket, file_name, valid_duration=60):
     """Gera uma URL assinada para acesso temporário ao arquivo"""
     try:
         # Obtém autorização de download
