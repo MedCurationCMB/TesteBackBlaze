@@ -152,28 +152,50 @@ with tab2:
             # Opções para visualizar ou baixar
             col1, col2 = st.columns(2)
             
+            # Container para armazenar os bytes do PDF após o download
+            # (fazemos o download apenas uma vez se ambos os botões forem clicados)
+            if "pdf_bytes" not in st.session_state:
+                st.session_state.pdf_bytes = None
+                
             with col1:
                 if st.button("Visualizar PDF"):
                     with st.spinner("Carregando PDF..."):
                         try:
-                            # Download do arquivo
-                            file_id = selected_file["id"]
-                            file_name = selected_file["name"]
+                            # Verifica se já temos os bytes do PDF em session_state
+                            if st.session_state.pdf_bytes is None:
+                                # Download do arquivo
+                                file_id = selected_file["id"]
+                                file_name = selected_file["name"]
+                                
+                                # Baixa o arquivo usando nossa função personalizada
+                                pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
+                                st.session_state.pdf_bytes = pdf_bytes
+                            else:
+                                pdf_bytes = st.session_state.pdf_bytes
+                                
+                            # Criando um botão que abre o PDF em nova aba
+                            st.success("PDF carregado com sucesso!")
                             
-                            # Baixa o arquivo usando nossa função personalizada
-                            pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
+                            # Convertendo para base64
+                            b64_pdf = base64.b64encode(pdf_bytes).decode()
                             
-                            # Mostra o PDF usando um componente seguro do Streamlit
-                            st.write("PDF carregado com sucesso:")
-                            st.download_button(
-                                label="Abrir PDF no navegador",
-                                data=pdf_bytes,
-                                file_name=file_name,
-                                mime="application/pdf"
-                            )
-                            
-                            # Informa o usuário sobre a visualização
-                            st.info("Use o botão acima para abrir o PDF em uma nova aba do navegador.")
+                            # Criando um link HTML que abre em nova aba
+                            href = f"""
+                            <a href="data:application/pdf;base64,{b64_pdf}" target="_blank">
+                                <button style="
+                                    background-color: #4CAF50;
+                                    color: white;
+                                    padding: 10px 24px;
+                                    border: none;
+                                    border-radius: 4px;
+                                    cursor: pointer;
+                                    font-size: 16px;
+                                ">
+                                    Abrir PDF em nova aba
+                                </button>
+                            </a>
+                            """
+                            st.markdown(href, unsafe_allow_html=True)
                             
                         except Exception as e:
                             st.error(f"Erro ao visualizar arquivo: {str(e)}")
@@ -182,16 +204,22 @@ with tab2:
                 if st.button("Download PDF"):
                     with st.spinner("Preparando download..."):
                         try:
-                            # Download do arquivo
-                            file_id = selected_file["id"]
-                            file_name = selected_file["name"]
+                            # Verifica se já temos os bytes do PDF em session_state
+                            if st.session_state.pdf_bytes is None:
+                                # Download do arquivo
+                                file_id = selected_file["id"]
+                                file_name = selected_file["name"]
+                                
+                                # Baixa o arquivo usando nossa função personalizada
+                                pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
+                                st.session_state.pdf_bytes = pdf_bytes
+                            else:
+                                pdf_bytes = st.session_state.pdf_bytes
+                                file_name = selected_file["name"]
                             
-                            # Baixa o arquivo usando nossa função personalizada
-                            pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
-                            
-                            # Prepara o link de download
+                            # Usando o download_button nativo do Streamlit
                             st.download_button(
-                                label="Clique aqui para baixar o arquivo",
+                                label="Baixar PDF",
                                 data=pdf_bytes,
                                 file_name=file_name,
                                 mime="application/pdf"
