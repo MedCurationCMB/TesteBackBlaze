@@ -233,42 +233,20 @@ with tab2:
                 if st.button("Download PDF"):
                     with st.spinner("Preparando download..."):
                         try:
-                            # Usado para download
-                            # Dados do arquivo
+                            # Download do arquivo
                             file_id = selected_file["id"]
                             file_name = selected_file["name"]
                             
-                            # Gera URL temporária autorizada
-                            file_url = get_signed_url(bucket, file_name)
+                            # Baixa o arquivo usando nossa função personalizada
+                            pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
                             
-                            if file_url:
-                                # Usando o botão do Streamlit para download
-                                st.markdown(f"""
-                                <a href="{file_url}" download="{file_name}">
-                                    <button style="
-                                        background-color: #4CAF50;
-                                        color: white;
-                                        padding: 10px 24px;
-                                        border: none;
-                                        border-radius: 4px;
-                                        cursor: pointer;
-                                        font-size: 16px;
-                                    ">
-                                        Download do PDF
-                                    </button>
-                                </a>
-                                """, unsafe_allow_html=True)
-                            else:
-                                # Método alternativo - baixa o arquivo
-                                pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
-                                
-                                # Usando o download_button nativo do Streamlit
-                                st.download_button(
-                                    label="Baixar PDF",
-                                    data=pdf_bytes,
-                                    file_name=file_name,
-                                    mime="application/pdf"
-                                )
+                            # Usando o download_button nativo do Streamlit
+                            st.download_button(
+                                label="Clique aqui para baixar o arquivo",
+                                data=pdf_bytes,
+                                file_name=file_name,
+                                mime="application/pdf"
+                            )
                             
                         except Exception as e:
                             st.error(f"Erro ao preparar download: {str(e)}")
