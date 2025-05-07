@@ -2,7 +2,7 @@ import streamlit as st
 import base64
 import os
 import tempfile
-from b2sdk.v2 import InMemoryAccountInfo, B2Api, DownloadDestLocalFile
+from b2sdk.v2 import InMemoryAccountInfo, B2Api
 import io
 import time
 
@@ -127,7 +127,9 @@ with tab2:
                         try:
                             # Baixa o arquivo para memória
                             download_dest = io.BytesIO()
-                            bucket.download_file_by_id(selected_file["id"], download_dest)
+                            
+                            # Usa o download_file_by_id com o parâmetro de destino
+                            bucket.download_file_by_id(selected_file["id"]).save_to(download_dest)
                             
                             # Move o ponteiro de leitura para o início
                             download_dest.seek(0)
@@ -148,7 +150,9 @@ with tab2:
                         try:
                             # Baixa o arquivo para memória
                             download_dest = io.BytesIO()
-                            bucket.download_file_by_id(selected_file["id"], download_dest)
+                            
+                            # Usa o download_file_by_id com o parâmetro de destino
+                            bucket.download_file_by_id(selected_file["id"]).save_to(download_dest)
                             
                             # Move o ponteiro de leitura para o início
                             download_dest.seek(0)
