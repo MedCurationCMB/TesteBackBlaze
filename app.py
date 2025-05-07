@@ -126,17 +126,23 @@ with tab2:
                 if st.button("Visualizar PDF"):
                     with st.spinner("Carregando PDF..."):
                         try:
-                            # Baixa o arquivo para memória
-                            download_dest = io.BytesIO()
+                            # Download do arquivo para um arquivo temporário
+                            file_id = selected_file["id"]
+                            temp_path = os.path.join(tempfile.gettempdir(), f"temp_{file_id}.pdf")
                             
-                            # Usa o download_file_by_id com o parâmetro de destino
-                            bucket.download_file_by_id(selected_file["id"]).save_to(download_dest)
+                            # Baixa e salva em um arquivo temporário
+                            downloaded_file = bucket.download_file_by_id(file_id)
+                            downloaded_file.save(temp_path)
                             
-                            # Move o ponteiro de leitura para o início
-                            download_dest.seek(0)
+                            # Lê o arquivo para obter os bytes
+                            with open(temp_path, 'rb') as f:
+                                pdf_bytes = f.read()
+                            
+                            # Remove o arquivo temporário
+                            os.remove(temp_path)
                             
                             # Converte para base64 para exibição
-                            base64_pdf = base64.b64encode(download_dest.read()).decode('utf-8')
+                            base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
                             
                             # Exibe o PDF incorporado
                             pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
@@ -149,18 +155,23 @@ with tab2:
                 if st.button("Download PDF"):
                     with st.spinner("Preparando download..."):
                         try:
-                            # Baixa o arquivo para memória
-                            download_dest = io.BytesIO()
+                            # Download do arquivo para um arquivo temporário
+                            file_id = selected_file["id"]
+                            temp_path = os.path.join(tempfile.gettempdir(), f"temp_{file_id}.pdf")
                             
-                            # Usa o download_file_by_id com o parâmetro de destino
-                            bucket.download_file_by_id(selected_file["id"]).save_to(download_dest)
+                            # Baixa e salva em um arquivo temporário
+                            downloaded_file = bucket.download_file_by_id(file_id)
+                            downloaded_file.save(temp_path)
                             
-                            # Move o ponteiro de leitura para o início
-                            download_dest.seek(0)
+                            # Lê o arquivo para obter os bytes
+                            with open(temp_path, 'rb') as f:
+                                pdf_bytes = f.read()
+                            
+                            # Remove o arquivo temporário
+                            os.remove(temp_path)
                             
                             # Prepara o link de download
-                            file_bytes = download_dest.read()
-                            b64 = base64.b64encode(file_bytes).decode()
+                            b64 = base64.b64encode(pdf_bytes).decode()
                             href = f'<a href="data:application/pdf;base64,{b64}" download="{selected_file["name"]}">Clique aqui para baixar o arquivo</a>'
                             st.markdown(href, unsafe_allow_html=True)
                             
