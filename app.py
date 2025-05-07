@@ -60,16 +60,19 @@ def download_file_from_b2(bucket, file_id, file_name):
         raise e
 
 # Função para gerar URL assinada
-def generate_file_url(b2_api, bucket, file_id, file_name):
-    """Gera uma URL assinada para download direto"""
+def get_signed_url(bucket, file_name, valid_duration=3600):
+    """Gera uma URL assinada para acesso temporário ao arquivo"""
     try:
-        # Gera uma URL temporária e autorizada
-        url_info = bucket.get_download_url(file_name)
-        
-        # Retorna a URL para download
-        return url_info
+        # Obtém autorização de download
+        auth_token = bucket.get_download_authorization(
+            file_name, valid_duration
+        )
+        # Obtém URL base do arquivo
+        base_url = bucket.get_download_url(file_name)
+        # Combina para formar a URL assinada
+        return f"{base_url}?Authorization={auth_token}"
     except Exception as e:
-        st.error(f"Erro ao gerar URL: {str(e)}")
+        st.error(f"Erro ao gerar URL assinada: {str(e)}")
         return None
 
 # Interface principal
@@ -173,37 +176,60 @@ with tab2:
                             file_id = selected_file["id"]
                             file_name = selected_file["name"]
                             
-                            # Método 1: Download e criação de URL temporária usando método base64
-                            # Baixa o arquivo usando nossa função personalizada
-                            pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
+                            # Gera URL temporária autorizada
+                            file_url = get_signed_url(bucket, file_name)
                             
-                            # Convertendo para base64
-                            b64_pdf = base64.b64encode(pdf_bytes).decode()
-                            
-                            # Criando um link HTML que abre em nova aba
-                            st.success("PDF carregado com sucesso!")
-                            
-                            href = f"""
-                            <a href="data:application/pdf;base64,{b64_pdf}" target="_blank">
-                                <button style="
-                                    background-color: #4CAF50;
-                                    color: white;
-                                    padding: 10px 24px;
-                                    border: none;
-                                    border-radius: 4px;
-                                    cursor: pointer;
-                                    font-size: 16px;
-                                ">
-                                    Abrir PDF em nova aba
-                                </button>
-                            </a>
-                            """
-                            st.markdown(href, unsafe_allow_html=True)
-                            
-                            # Visualização embutida (pode ser bloqueada pelo navegador)
-                            st.markdown("**Visualização embutida** (se bloqueado pelo navegador, use o botão acima):")
-                            pdf_display = f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="500" type="application/pdf"></iframe>'
-                            st.markdown(pdf_display, unsafe_allow_html=True)
+                            if file_url:
+                                st.success("URL autorizada gerada com sucesso!")
+                                
+                                # Botão para abrir em nova aba
+                                open_link = f"""
+                                <a href="{file_url}" target="_blank">
+                                    <button style="
+                                        background-color: #4CAF50;
+                                        color: white;
+                                        padding: 10px 24px;
+                                        border: none;
+                                        border-radius: 4px;
+                                        cursor: pointer;
+                                        font-size: 16px;
+                                    ">
+                                        Abrir PDF em nova aba
+                                    </button>
+                                </a>
+                                """
+                                st.markdown(open_link, unsafe_allow_html=True)
+                                
+                                # Visualização embutida usando iframe
+                                st.markdown("**Visualização embutida:**")
+                                iframe = f'<iframe src="{file_url}" width="100%" height="500" style="border:none;"></iframe>'
+                                st.markdown(iframe, unsafe_allow_html=True)
+                            else:
+                                st.error("Não foi possível gerar a URL. Tentando método alternativo...")
+                                
+                                # Método alternativo - baixa o arquivo e exibe com base64
+                                pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
+                                b64_pdf = base64.b64encode(pdf_bytes).decode()
+                                
+                                st.success("PDF carregado usando método alternativo!")
+                                
+                                # Botão para abrir em nova aba (alternativo)
+                                alt_href = f"""
+                                <a href="data:application/pdf;base64,{b64_pdf}" target="_blank">
+                                    <button style="
+                                        background-color: #4CAF50;
+                                        color: white;
+                                        padding: 10px 24px;
+                                        border: none;
+                                        border-radius: 4px;
+                                        cursor: pointer;
+                                        font-size: 16px;
+                                    ">
+                                        Abrir PDF em nova aba (alternativo)
+                                    </button>
+                                </a>
+                                """
+                                st.markdown(alt_href, unsafe_allow_html=True)
                             
                         except Exception as e:
                             st.error(f"Erro ao visualizar arquivo: {str(e)}")
@@ -212,20 +238,42 @@ with tab2:
                 if st.button("Download PDF"):
                     with st.spinner("Preparando download..."):
                         try:
+                            # Usado para download
                             # Dados do arquivo
                             file_id = selected_file["id"]
                             file_name = selected_file["name"]
                             
-                            # Download do arquivo
-                            pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
+                            # Gera URL temporária autorizada
+                            file_url = get_signed_url(bucket, file_name)
                             
-                            # Usando o download_button nativo do Streamlit
-                            st.download_button(
-                                label="Baixar PDF",
-                                data=pdf_bytes,
-                                file_name=file_name,
-                                mime="application/pdf"
-                            )
+                            if file_url:
+                                # Usando o botão do Streamlit para download
+                                st.markdown(f"""
+                                <a href="{file_url}" download="{file_name}">
+                                    <button style="
+                                        background-color: #4CAF50;
+                                        color: white;
+                                        padding: 10px 24px;
+                                        border: none;
+                                        border-radius: 4px;
+                                        cursor: pointer;
+                                        font-size: 16px;
+                                    ">
+                                        Download do PDF
+                                    </button>
+                                </a>
+                                """, unsafe_allow_html=True)
+                            else:
+                                # Método alternativo - baixa o arquivo
+                                pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
+                                
+                                # Usando o download_button nativo do Streamlit
+                                st.download_button(
+                                    label="Baixar PDF",
+                                    data=pdf_bytes,
+                                    file_name=file_name,
+                                    mime="application/pdf"
+                                )
                             
                         except Exception as e:
                             st.error(f"Erro ao preparar download: {str(e)}")
