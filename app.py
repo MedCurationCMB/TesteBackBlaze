@@ -5,6 +5,7 @@ import tempfile
 from b2sdk.v2 import InMemoryAccountInfo, B2Api
 import io
 import time
+import requests
 
 # Configuração da página
 st.set_page_config(
@@ -126,20 +127,19 @@ with tab2:
                 if st.button("Visualizar PDF"):
                     with st.spinner("Carregando PDF..."):
                         try:
-                            # Download do arquivo para um arquivo temporário
+                            # Obter URL temporário para o arquivo
                             file_id = selected_file["id"]
-                            temp_path = os.path.join(tempfile.gettempdir(), f"temp_{file_id}.pdf")
+                            download_auth = bucket.get_download_authorization(
+                                file_id,
+                                valid_duration_in_seconds=60*60  # 1 hora
+                            )
                             
-                            # Baixa e salva em um arquivo temporário
-                            downloaded_file = bucket.download_file_by_id(file_id)
-                            downloaded_file.save(temp_path)
+                            # Obter conteúdo do arquivo usando a URL autorizada
+                            url = bucket.get_download_url_for_fileid(file_id, download_auth)
                             
-                            # Lê o arquivo para obter os bytes
-                            with open(temp_path, 'rb') as f:
-                                pdf_bytes = f.read()
-                            
-                            # Remove o arquivo temporário
-                            os.remove(temp_path)
+                            # Download do arquivo usando requests
+                            response = requests.get(url)
+                            pdf_bytes = response.content
                             
                             # Converte para base64 para exibição
                             base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
@@ -155,20 +155,19 @@ with tab2:
                 if st.button("Download PDF"):
                     with st.spinner("Preparando download..."):
                         try:
-                            # Download do arquivo para um arquivo temporário
+                            # Obter URL temporário para o arquivo
                             file_id = selected_file["id"]
-                            temp_path = os.path.join(tempfile.gettempdir(), f"temp_{file_id}.pdf")
+                            download_auth = bucket.get_download_authorization(
+                                file_id,
+                                valid_duration_in_seconds=60*60  # 1 hora
+                            )
                             
-                            # Baixa e salva em um arquivo temporário
-                            downloaded_file = bucket.download_file_by_id(file_id)
-                            downloaded_file.save(temp_path)
+                            # Obter conteúdo do arquivo usando a URL autorizada
+                            url = bucket.get_download_url_for_fileid(file_id, download_auth)
                             
-                            # Lê o arquivo para obter os bytes
-                            with open(temp_path, 'rb') as f:
-                                pdf_bytes = f.read()
-                            
-                            # Remove o arquivo temporário
-                            os.remove(temp_path)
+                            # Download do arquivo usando requests
+                            response = requests.get(url)
+                            pdf_bytes = response.content
                             
                             # Prepara o link de download
                             b64 = base64.b64encode(pdf_bytes).decode()
