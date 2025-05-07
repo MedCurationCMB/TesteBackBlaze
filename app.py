@@ -199,11 +199,6 @@ with tab2:
                                 </a>
                                 """
                                 st.markdown(open_link, unsafe_allow_html=True)
-                                
-                                # Visualização embutida usando iframe
-                                st.markdown("**Visualização embutida:**")
-                                iframe = f'<iframe src="{file_url}" width="100%" height="500" style="border:none;"></iframe>'
-                                st.markdown(iframe, unsafe_allow_html=True)
                             else:
                                 st.error("Não foi possível gerar a URL. Tentando método alternativo...")
                                 
@@ -225,7 +220,7 @@ with tab2:
                                         cursor: pointer;
                                         font-size: 16px;
                                     ">
-                                        Abrir PDF em nova aba (alternativo)
+                                        Abrir PDF em nova aba
                                     </button>
                                 </a>
                                 """
