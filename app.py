@@ -163,12 +163,17 @@ with tab2:
                             # Baixa o arquivo usando nossa função personalizada
                             pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
                             
-                            # Converte para base64 para exibição
-                            base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+                            # Mostra o PDF usando um componente seguro do Streamlit
+                            st.write("PDF carregado com sucesso:")
+                            st.download_button(
+                                label="Abrir PDF no navegador",
+                                data=pdf_bytes,
+                                file_name=file_name,
+                                mime="application/pdf"
+                            )
                             
-                            # Exibe o PDF incorporado
-                            pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
-                            st.markdown(pdf_display, unsafe_allow_html=True)
+                            # Informa o usuário sobre a visualização
+                            st.info("Use o botão acima para abrir o PDF em uma nova aba do navegador.")
                             
                         except Exception as e:
                             st.error(f"Erro ao visualizar arquivo: {str(e)}")
@@ -185,9 +190,12 @@ with tab2:
                             pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
                             
                             # Prepara o link de download
-                            b64 = base64.b64encode(pdf_bytes).decode()
-                            href = f'<a href="data:application/pdf;base64,{b64}" download="{file_name}">Clique aqui para baixar o arquivo</a>'
-                            st.markdown(href, unsafe_allow_html=True)
+                            st.download_button(
+                                label="Clique aqui para baixar o arquivo",
+                                data=pdf_bytes,
+                                file_name=file_name,
+                                mime="application/pdf"
+                            )
                             
                         except Exception as e:
                             st.error(f"Erro ao preparar download: {str(e)}")
