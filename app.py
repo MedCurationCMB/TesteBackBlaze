@@ -87,17 +87,17 @@ with tab2:
         b2_api, bucket = initialize_b2()
         
         # Listar arquivos do bucket
-        file_versions = bucket.list_file_versions()
+        file_versions = bucket.ls()
         files = {}
         
         # Organiza os arquivos mais recentes
-        for file_version, _ in file_versions:
-            if file_version.file_name not in files and file_version.file_name.endswith('.pdf'):
-                files[file_version.file_name] = {
-                    "id": file_version.id_,
-                    "name": file_version.file_name,
-                    "size": file_version.size,
-                    "upload_timestamp": file_version.upload_timestamp
+        for file_info in file_versions:
+            if file_info.file_name.endswith('.pdf'):
+                files[file_info.file_name] = {
+                    "id": file_info.id_,
+                    "name": file_info.file_name,
+                    "size": file_info.size,
+                    "upload_timestamp": file_info.upload_timestamp
                 }
         
         if files:
