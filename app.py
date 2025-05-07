@@ -5,7 +5,6 @@ import tempfile
 from b2sdk.v2 import InMemoryAccountInfo, B2Api
 import io
 import time
-import requests
 
 # Configuração da página
 st.set_page_config(
@@ -33,6 +32,32 @@ def initialize_b2():
     bucket = b2_api.get_bucket_by_name(bucket_name)
     
     return b2_api, bucket
+
+# Função para baixar arquivo do Backblaze
+def download_file_from_b2(bucket, file_id, file_name):
+    """Baixa um arquivo do Backblaze B2 para um arquivo temporário"""
+    temp_dir = tempfile.gettempdir()
+    temp_file_path = os.path.join(temp_dir, file_name)
+    
+    # Tenta fazer o download usando a API B2
+    try:
+        # Baixa o arquivo para o local temporário
+        download_dest = bucket.download_file_by_id(file_id)
+        with open(temp_file_path, 'wb') as f:
+            download_dest.save(f)
+            
+        # Lê o conteúdo do arquivo
+        with open(temp_file_path, 'rb') as f:
+            file_content = f.read()
+            
+        # Remove o arquivo temporário
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+            
+        return file_content
+    except Exception as e:
+        st.error(f"Erro ao baixar arquivo: {str(e)}")
+        raise e
 
 # Interface principal
 st.title("Sistema de Gerenciamento de PDFs")
@@ -70,12 +95,15 @@ with tab1:
                     st.success(f"Arquivo enviado com sucesso! ID: {file_info.id_}")
                     
                     # Adicionando informações sobre o arquivo
-                    st.session_state.last_uploaded = {
+                    if 'uploaded_files' not in st.session_state:
+                        st.session_state.uploaded_files = []
+                        
+                    st.session_state.uploaded_files.append({
                         "name": file_name,
                         "id": file_info.id_,
                         "size": file_size,
                         "timestamp": time.time()
-                    }
+                    })
                     
                 except Exception as e:
                     st.error(f"Erro ao enviar arquivo: {str(e)}")
@@ -93,7 +121,8 @@ with tab2:
         
         # Organiza os arquivos mais recentes
         for file_info_tuple in file_versions:
-            file_version = file_info_tuple[0]  # O primeiro elemento da tupla é o objeto FileVersion
+            # O primeiro elemento da tupla é o objeto FileVersion
+            file_version = file_info_tuple[0]  
             if file_version.file_name.endswith('.pdf'):
                 files[file_version.file_name] = {
                     "id": file_version.id_,
@@ -127,19 +156,12 @@ with tab2:
                 if st.button("Visualizar PDF"):
                     with st.spinner("Carregando PDF..."):
                         try:
-                            # Obter URL temporário para o arquivo
+                            # Download do arquivo
                             file_id = selected_file["id"]
-                            download_auth = bucket.get_download_authorization(
-                                file_id,
-                                valid_duration_in_seconds=60*60  # 1 hora
-                            )
+                            file_name = selected_file["name"]
                             
-                            # Obter conteúdo do arquivo usando a URL autorizada
-                            url = bucket.get_download_url_for_fileid(file_id, download_auth)
-                            
-                            # Download do arquivo usando requests
-                            response = requests.get(url)
-                            pdf_bytes = response.content
+                            # Baixa o arquivo usando nossa função personalizada
+                            pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
                             
                             # Converte para base64 para exibição
                             base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
@@ -155,23 +177,16 @@ with tab2:
                 if st.button("Download PDF"):
                     with st.spinner("Preparando download..."):
                         try:
-                            # Obter URL temporário para o arquivo
+                            # Download do arquivo
                             file_id = selected_file["id"]
-                            download_auth = bucket.get_download_authorization(
-                                file_id,
-                                valid_duration_in_seconds=60*60  # 1 hora
-                            )
+                            file_name = selected_file["name"]
                             
-                            # Obter conteúdo do arquivo usando a URL autorizada
-                            url = bucket.get_download_url_for_fileid(file_id, download_auth)
-                            
-                            # Download do arquivo usando requests
-                            response = requests.get(url)
-                            pdf_bytes = response.content
+                            # Baixa o arquivo usando nossa função personalizada
+                            pdf_bytes = download_file_from_b2(bucket, file_id, file_name)
                             
                             # Prepara o link de download
                             b64 = base64.b64encode(pdf_bytes).decode()
-                            href = f'<a href="data:application/pdf;base64,{b64}" download="{selected_file["name"]}">Clique aqui para baixar o arquivo</a>'
+                            href = f'<a href="data:application/pdf;base64,{b64}" download="{file_name}">Clique aqui para baixar o arquivo</a>'
                             st.markdown(href, unsafe_allow_html=True)
                             
                         except Exception as e:
